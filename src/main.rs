@@ -68,6 +68,7 @@ enum Message {
     CopyResult,
     VoiceEventRec(VoiceEvent),
     CopyCode,
+    TrModelChanged(String),
 }
 
 #[derive(Debug, Clone)]
@@ -128,6 +129,8 @@ struct AiVChat {
 
     v_sender: Option<mpsc::Sender<VoiceCommand>>,
     voices: BTreeMap<String, String>,
+
+    vmodel: String,
 }
 
 pub fn run(theme: &str) -> Result<(), iced::Error> {
@@ -212,6 +215,7 @@ impl AiVChat {
         let s_themes = Theme::ALL.to_vec();
         let s_lang = Language::ALL.to_vec();
         let voices = c.voices;
+        let vmodel = c.tr_model.clone();
 
         Self { 
             level: -50.0,
@@ -255,6 +259,7 @@ impl AiVChat {
 
             v_sender: None,
             voices,
+            vmodel,
         }
     }
 
@@ -309,6 +314,10 @@ impl AiVChat {
             let idc_chat_model: TextInput<Message> = text_input("Api Model", &self.ai_api.model )
                 .on_input(Message::ChatApiUrlChanged);
 
+            let ids_tr_model = text("Transciber model").width(label_w);
+            let idc_tr_model: TextInput<Message> = text_input("Transciption model", &self.vmodel)
+                .on_input(Message::TrModelChanged);
+
             let idc_close: Button<Message> = button("Cancel").on_press(Message::ToggleSettings);
             let idc_save: Button<Message> = button("Save").on_press(Message::SaveSettings);
 
@@ -322,6 +331,7 @@ impl AiVChat {
                 row![ids_chat_key, idc_chat_key].spacing(15.0).padding(5.0),
                 row![ids_chat_url, idc_chat_url].spacing(15.0).padding(5.0),
                 row![ids_chat_model, idc_chat_model].spacing(15.0).padding(5.0),
+                row![ids_tr_model, idc_tr_model].spacing(15.0).padding(5.0),
                 row![idc_save, idc_close].spacing(15.0).padding(5.0),
             ].padding(25.0).into();
         } else if self.show_modal {
@@ -448,6 +458,10 @@ impl AiVChat {
                 let result = self.result_raw.join("");
                 iced::clipboard::write(result)
                 //iced::Task::none()
+            }
+            Message::TrModelChanged(s) => {
+                self.vmodel = s;
+                iced::Task::none()
             }
             Message::CopyCode => {
                 let result = self.result_raw.join("");

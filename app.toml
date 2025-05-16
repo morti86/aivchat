@@ -4,7 +4,7 @@ width = 800.0
 font_size = 18
 rec_device = ""
 theme = "Catppuccin Mocha"
-tr_model = "./ggml-large-v3-turbo.bin"
+tr_model = "./ggml-large-v3-turbo-q5_0.bin"
 tr_lang = "EN"
 prompt_context = ""
 
