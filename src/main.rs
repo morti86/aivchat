@@ -69,6 +69,7 @@ enum Message {
     VoiceEventRec(VoiceEvent),
     CopyCode,
     TrModelChanged(String),
+    TrModeToggle(bool),
 }
 
 #[derive(Debug, Clone)]
@@ -131,6 +132,7 @@ struct AiVChat {
     voices: BTreeMap<String, String>,
 
     vmodel: String,
+    tr_mode: bool,
 }
 
 pub fn run(theme: &str) -> Result<(), iced::Error> {
@@ -260,6 +262,7 @@ impl AiVChat {
             v_sender: None,
             voices,
             vmodel,
+            tr_mode: false,
         }
     }
 
@@ -345,10 +348,11 @@ impl AiVChat {
             return alert.into();
         }
 
+        let t_h = if self.tr_mode { 0.90 } else { 0.35 };
         let idc_text: Element<'_, Message> = text_editor(&self.query_text)
             .placeholder("Paste text here")
             .on_action(Message::EditAction)
-            .height(config.height * 0.3)
+            .height(config.height * t_h)
             .size(config.font_size)
             .into();
         let b_c = match self.rec_state {
@@ -378,6 +382,7 @@ impl AiVChat {
             Some(Message::CopyCode)
         };
         let idc_cc: Button<Message> = button("Code").on_press_maybe(m_cc);
+        let idc_tr = checkbox("Transcriber only", self.tr_mode).on_toggle(Message::TrModeToggle);
 
         let button_row = row![
             b_up.padding(5.0),
@@ -390,10 +395,16 @@ impl AiVChat {
             idc_ask.padding(5.0),
             idc_copy.padding(5.0),
             idc_cc.padding(5.0),
+            text(" "),
+            idc_tr,
         ].padding(5.0).spacing(5.0);
-
-        let idc_result = markdown::view(self.result_text.items(), self.theme())
-            .map(Message::LinkClicked);
+            
+        let idc_result: Element<'_, Message> = if self.tr_mode {
+            text("").into()
+        } else {
+            markdown::view(self.result_text.items(), self.theme())
+                .map(Message::LinkClicked).into()
+        };
 
         let controls = column![
             idc_text,
@@ -461,6 +472,10 @@ impl AiVChat {
             }
             Message::TrModelChanged(s) => {
                 self.vmodel = s;
+                iced::Task::none()
+            }
+            Message::TrModeToggle(t) => {
+                self.tr_mode = t;
                 iced::Task::none()
             }
             Message::CopyCode => {

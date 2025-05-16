@@ -8,6 +8,8 @@ tr_model = "./ggml-large-v3-turbo-q5_0.bin"
 tr_lang = "EN"
 prompt_context = ""
 
+# These are example enties. Add, remove them as you need.
+
 [ai_chats.ollama_deepseek]
 name = "Ollama [deepseek-r1:32b]"
 key = ""
