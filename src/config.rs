@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, BTreeMap};
+use std::fmt;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct AiApi {
@@ -7,6 +8,12 @@ pub struct AiApi {
     pub key: String,
     pub url: String,
     pub model: String,
+}
+
+impl fmt::Display for AiApi {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.name)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]

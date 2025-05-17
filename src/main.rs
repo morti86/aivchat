@@ -16,6 +16,7 @@ use iced::futures::sink::SinkExt;
 use iced::task::{Never, Sipper, sipper};
 use whisper_rs;
 use std::collections::BTreeMap;
+use webbrowser;
 
 mod config;
 mod vumeter;
@@ -432,8 +433,8 @@ impl AiVChat {
         b
     }
 
-    fn display_av(&mut self, msg: &str) {
-        self.modal_text = msg.to_string();
+    fn display_av(&mut self, msg: impl Into<String>) {
+        self.modal_text = msg.into();
         self.show_modal = true;
     }
 
@@ -529,10 +530,9 @@ impl AiVChat {
                 iced::Task::none()
             }
             Message::LinkClicked(e) => {
-                #[cfg(target_os = "linux")]
-                let _ = std::process::Command::new("xdg-open").arg(e.to_string()).output();
-                #[cfg(target_os = "windows")]
-                utils::open_link(e.to_string().as_str());
+                if let Err(e) = webbrowser::open(e.as_str()) {
+                    self.display_av(e.to_string());
+                }
                 iced::clipboard::write(e.to_string())
             }
             Message::DeviceSelected(d) => {
@@ -660,7 +660,7 @@ impl AiVChat {
                     chat::ChatEvent::StreamEnded => {
                     }
                     chat::ChatEvent::ChatError(e) => {
-                        self.display_av(e.as_str());
+                        self.display_av(e);
                     }
                     chat::ChatEvent::ChatMessage(m) => {
                         self.result_text.push_str(m.as_str());
@@ -718,7 +718,7 @@ impl AiVChat {
                         debug!("Ready");
                     }
                     RecEvent::Error(e) => {
-                        self.display_av(e.as_str());
+                        self.display_av(e);
                     }
                     RecEvent::SetSampleRate(sr) => {
                         debug!("New SR: {}", sr);

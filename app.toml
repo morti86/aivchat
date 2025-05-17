@@ -2,25 +2,11 @@ sel_chat = "Deepseek"
 height = 600.0
 width = 800.0
 font_size = 18
-rec_device = ""
+rec_device = "Monitor of AudioQuest DragonFly Black v1.5 Analogowe stereo"
 theme = "Catppuccin Mocha"
 tr_model = "./ggml-large-v3-turbo-q5_0.bin"
 tr_lang = "EN"
 prompt_context = ""
-
-# These are example enties. Add, remove them as you need.
-
-[ai_chats.ollama_deepseek]
-name = "Ollama [deepseek-r1:32b]"
-key = ""
-url = "http://localhost:11434/v1"
-model = "deepseek-r1:32b"
-
-[ai_chats.ollama_gemma]
-name = "Ollama [gemma3:27b]"
-key = ""
-url = "http://localhost:11434/v1"
-model = "gemma3:27b"
 
 [ai_chats.elevenlabs]
 name = "Elevenlabs"
@@ -40,13 +26,24 @@ key = ""
 url = "https://api.openai.com/v1"
 model = "gpt-4"
 
+[ai_chats.ollama_deepseek]
+name = "Ollama [deepseek-r1:32b]"
+key = ""
+url = "http://localhost:11434/v1"
+model = "deepseek-r1:32b"
+
 [ai_chats.deepseek]
 name = "Deepseek"
 key = ""
 url = "https://api.deepseek.com"
 model = "deepseek-chat"
 
-# Do not modify this section. It is to map the voice names to keys.
+[ai_chats.ollama_gemma]
+name = "Ollama [gemma3:27b]"
+key = ""
+url = "http://localhost:11434/v1"
+model = "gemma3:27b"
+
 [voices]
 Alice = "Xb7hH8MSUJpSbSDYk0k2"
 Aria = "9BWtsMINqrJLrRacOk9x"
