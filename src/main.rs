@@ -15,8 +15,9 @@ use iced::futures::channel::mpsc;
 use iced::futures::sink::SinkExt;
 use iced::task::{Never, Sipper, sipper};
 use whisper_rs;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use webbrowser;
+use uuid;
 
 mod config;
 mod vumeter;
@@ -59,7 +60,8 @@ enum Message {
     ShowError(String),
     HideModal,
     CtxInput(String),
-    ChatSelected(String),
+    //ChatSelected(String),
+    ChatSelected(config::AiApi),
     ChatEventReceived(chat::ChatEvent),
     AskChat,
     ChatApiKeyChanged(String),
@@ -71,6 +73,8 @@ enum Message {
     CopyCode,
     TrModelChanged(String),
     TrModeToggle(bool),
+    NewAiChat,
+    NewAiChatNameChanged(String),
 }
 
 #[derive(Debug, Clone)]
@@ -121,19 +125,25 @@ struct AiVChat {
     modal_text: String,
 
     prompt_context: String,
-    ai_chat: Option<String>,
+    /*ai_chat: Option<String>,
     ai_chats: combo_box::State<String>,
     ai_api: config::AiApi,
     ai_apis: Vec<config::AiApi>,
-    ai_cmd: Option<mpsc::Sender<chat::ChatCommand>>,
-    ai_api_k: String,
+    ai_api_k: String,*/
     ai_editor_dirty: bool,
+    ai_cmd: Option<mpsc::Sender<chat::ChatCommand>>,
+
+    s_ai_chat: Option<config::AiApi>,
+    s_ai_chats: combo_box::State<config::AiApi>,
+    s_ai_table: HashMap<String, config::AiApi>,
 
     v_sender: Option<mpsc::Sender<VoiceCommand>>,
     voices: BTreeMap<String, String>,
 
     vmodel: String,
     tr_mode: bool,
+    new_chat: bool,
+    n_new_chat: String,
 }
 
 pub fn run(theme: &str) -> Result<(), iced::Error> {
@@ -176,26 +186,21 @@ impl AiVChat {
 
         let c = config.blocking_read().clone();
         let lang = c.tr_lang;
-        let ai_chat = c.sel_chat;
+        //let ai_chat = c.sel_chat;
         let prompt_context = c.prompt_context;
-        let mut ai_api = config::AiApi::default();
-        let mut ai_chats = vec![];
-        let mut ai_apis = vec![];
-        let mut ai_api_k = String::new();
-
-        c.ai_chats.iter()
-            .for_each(|(n,v)| {
-                ai_chats.push(v.name.clone());
-                ai_apis.push(v.clone());
-                if let Some(ai_chat) = &ai_chat {
-                    if ai_chat.eq_ignore_ascii_case(v.name.as_str()) {
-                        debug!("Setting AiApi[{}]: {:?}", n, v);
-                        ai_api = v.clone();
-                        ai_api_k = n.clone();
-                    }
-                }
-            });
-        let s_ai_chats = combo_box::State::new(ai_chats);
+        
+        let s_ai_table = c.ai_chats.clone();
+        let s_ai_chats = combo_box::State::new(
+            s_ai_table.iter()
+                .map(|(_,e)| e.clone())
+                .collect());
+        let s_ai_chat =  if let Some(sel_chat) = c.sel_chat.as_ref() {
+            s_ai_table.iter().find(|(_,e)| e.name.eq(sel_chat))
+                .map(|e| e.1.clone())
+        } else {
+            None
+        };
+        let new_chat = s_ai_chat.is_none();
 
         let theme = Theme::ALL.iter().find(|t|
             t.to_string() == c.theme)
@@ -252,18 +257,23 @@ impl AiVChat {
 
             prompt_context: prompt_context.unwrap_or_default(),
 
-            ai_chat,
+            /*ai_chat,
             ai_chats: s_ai_chats,
             ai_api,
-            ai_cmd: None,
             ai_apis,
-            ai_api_k,
+            ai_api_k,*/
+            s_ai_chat,
+            s_ai_table,
+            s_ai_chats,
             ai_editor_dirty: false,
+            ai_cmd: None,
 
             v_sender: None,
             voices,
             vmodel,
             tr_mode: false,
+            new_chat,
+            n_new_chat: String::new(),
         }
     }
 
@@ -292,7 +302,6 @@ impl AiVChat {
                 .on_press_maybe(m)
                 .width(60.0);
 
-
             let ids_theme = text("Theme").width(label_w);
             let idc_theme: ComboBox<'_, Theme, Message> = combo_box(&self.themes, "select theme", self.theme.as_ref(), Message::ThemeSelected);
 
@@ -304,19 +313,30 @@ impl AiVChat {
                 .on_input(Message::CtxInput);
 
             let ids_chat = text("AI Chat").width(label_w);
-            let idc_chat:ComboBox<'_, String, Message> = combo_box(&self.ai_chats, "", self.ai_chat.as_ref(), Message::ChatSelected);
+            //let idc_chat:ComboBox<'_, String, Message> = combo_box(&self.ai_chats, "", self.ai_chat.as_ref(), Message::ChatSelected);
+            let idc_chat: Element<'_, Message> = if self.new_chat {
+                let name = if let Some(s) = &self.s_ai_chat.as_ref() { s.name.clone() } else { String::new() };
+                text_input("Name the chat", &name)
+                    .on_input(Message::NewAiChatNameChanged).into()
+            } else {
+                combo_box(&self.s_ai_chats, "", self.s_ai_chat.as_ref(), Message::ChatSelected).into()
+            };
+            let idc_new: Button<Message> = button("New").on_press(Message::NewAiChat);
 
             let ids_chat_key = text("Api Key").width(label_w);
-            let idc_chat_key: TextInput<Message> = text_input("Api key", &self.ai_api.key )
+            let key = if let Some(s) = &self.s_ai_chat.as_ref() { s.key.clone() } else { String::new() };
+            let idc_chat_key: TextInput<Message> = text_input("Api key", &key )
                 .on_input(Message::ChatApiKeyChanged);
 
+            let url = if let Some(s) = &self.s_ai_chat { s.url.clone() } else { String::new() };
             let ids_chat_url = text("Api Url").width(label_w);
-            let idc_chat_url: TextInput<Message> = text_input("Api Url", &self.ai_api.url )
+            let idc_chat_url: TextInput<Message> = text_input("Api Url", &url )
                 .on_input(Message::ChatApiUrlChanged);
 
+            let model = if let Some(s) = &self.s_ai_chat { s.model.clone() } else { String::new() };
             let ids_chat_model = text("Api Model").width(label_w);
-            let idc_chat_model: TextInput<Message> = text_input("Api Model", &self.ai_api.model )
-                .on_input(Message::ChatApiUrlChanged);
+            let idc_chat_model: TextInput<Message> = text_input("Api Model", &model )
+                .on_input(Message::ChatApiModelChanged);
 
             let ids_tr_model = text("Transciber model").width(label_w);
             let idc_tr_model: TextInput<Message> = text_input("Transciption model", &self.vmodel)
@@ -331,7 +351,7 @@ impl AiVChat {
                 row![ids_theme, idc_theme].spacing(15.0).padding(5.0),
                 row![ids_lang, idc_lang].spacing(15.0).padding(5.0),
                 row![ids_ctx, idc_ctx].spacing(15.0).padding(5.0),
-                row![ids_chat, idc_chat].spacing(15.0).padding(5.0),
+                row![ids_chat, idc_chat, idc_new].spacing(15.0).padding(5.0),
                 row![ids_chat_key, idc_chat_key].spacing(15.0).padding(5.0),
                 row![ids_chat_url, idc_chat_url].spacing(15.0).padding(5.0),
                 row![ids_chat_model, idc_chat_model].spacing(15.0).padding(5.0),
@@ -369,12 +389,11 @@ impl AiVChat {
             .on_toggle(Message::PlayToggle);
 
         let idc_settings: Button<Message> = button("Settings").on_press(Message::ToggleSettings);
-        let ask_m = if self.ai_api.name.is_empty() || text_empty {
+        let ask_m = if text_empty || self.s_ai_chat.is_none() {
             None
         } else {
             Some(Message::AskChat)
         };
-
         let idc_ask: Button<Message> = button("Ask").on_press_maybe(ask_m);
         let idc_copy: Button<Message> = button("Copy result").on_press(Message::CopyResult);
         let m_cc = if self.result_raw.is_empty() {
@@ -570,31 +589,33 @@ impl AiVChat {
             }
             Message::ToggleSettings => {
                 self.settings = !self.settings;
+                self.new_chat = false;
                 iced::Task::none()
             }
             Message::ChatSelected(s) => {
-                self.ai_chat = Some(s.clone());
-                let c = self.config.blocking_read();
-                let ai_api_k = c.ai_chats.iter()
-                    .find(|(_,a)| a.name == s);
-                if let Some((k,a)) = ai_api_k {
-                    debug!("Api list key: {}", k);
-                    self.ai_api_k = k.clone();
-                    self.ai_api = a.clone();
-                }
-                debug!("Selected: {}", self.ai_api.name);
+                self.s_ai_chat = Some(s.clone());
+                iced::Task::none()
+            }
+            Message::NewAiChat => {
+                self.s_ai_chat = Some(config::AiApi::default());
+                self.new_chat = true;
                 iced::Task::none()
             }
             Message::SaveSettings => {
+                self.new_chat = false;
                 let c = self.config.clone();
                 let sel = self.device_sel.clone();
                 let fsize = self.font_size_u;
-                let chat = self.ai_chat.clone();
+                let chat = self.s_ai_chat.clone();
                 let chat_ctx = self.prompt_context.clone();
-                let api = self.ai_api.clone();
-                debug!("Api to save: {:?}", api);
-                let api_n = self.ai_api_k.clone();
-                debug!("Api name: {}, chat: {:?}", api_n, chat);
+                let api_n = if let Some(chat) = &chat {
+                    self.s_ai_table.iter()
+                        .find(|(_,v)| v.name.eq(&chat.name))
+                        .map(|(k,_)| k.clone())
+                } else {
+                    None
+                };
+
                 let theme = if let Some(t) = self.theme.clone() {
                     t.to_string()
                 } else {
@@ -607,10 +628,27 @@ impl AiVChat {
                     config.rec_device = sel;
                     config.font_size = fsize;
                     config.theme = theme;
-                    config.sel_chat = chat;
+                    let sel_chat = chat.as_ref().map(|e| e.name.clone());
+                    config.sel_chat = if sel_chat == Some("Elevenlabs".to_string()) {
+                        None
+                    } else {
+                        sel_chat
+                    };
                     config.prompt_context = Some(chat_ctx);
-                    config.ai_chats.entry(api_n)
-                        .and_modify(|e| *e = api);
+                    if let Some(api_n) = api_n {
+                        if let Some(chat) = chat {
+                            config.ai_chats.entry(api_n)
+                                .and_modify(|e| *e = chat);
+                        } else {
+                            config.ai_chats.remove(&api_n);
+                        }
+                    } else {
+                        if let Some(chat) = chat {
+                            let new_id = uuid::Uuid::now_v1(&[21, 2, 31, 52, 0, 61]);
+                            config.ai_chats.entry(new_id.to_string())
+                                .insert_entry(chat);
+                        }
+                    }
                     config.tr_lang = lang;
                     if let Ok(s_conf) = toml::to_string(&config.clone()) {
                         match tokio::fs::write(CONFIG, s_conf).await {
@@ -644,8 +682,8 @@ impl AiVChat {
                     chat::ChatEvent::ChatReady(r) => {
                         let mut s = r.clone();
                         self.ai_cmd = Some(r);
-                        if !self.ai_api.url.is_empty() {
-                            let api = self.ai_api.clone();
+                        if let Some(ai_api) = self.s_ai_chat.as_ref() {
+                            let api = ai_api.clone();
                             return iced::Task::perform(async move {
                                     s.send(chat::ChatCommand::SetChat(api)).await
                                 }, |res| {
@@ -741,7 +779,10 @@ impl AiVChat {
                 iced::Task::none()
             }
             Message::AskChat => {
-                let chat = self.ai_api.clone();
+                if self.s_ai_chat.is_none() {
+                    return iced::Task::none();
+                }
+                let chat = self.s_ai_chat.clone().unwrap();
                 debug!("Asking AI: {}", chat.name);
                 self.result_raw.clear();
                 self.result_text = markdown::Content::new();
@@ -768,24 +809,37 @@ impl AiVChat {
                 }
             }
             Message::ChatApiKeyChanged(key) => {
-                self.ai_api.key = key.clone();
+                debug!("Key changed: {}", key);
+                self.s_ai_chat.as_mut()
+                    .map(|e| e.key = key);
                 iced::Task::none()
             }
             Message::ChatApiUrlChanged(url) => {
-                self.ai_api.url = url;
+                debug!("Url changed: {}", url);
+                self.s_ai_chat.as_mut()
+                    .map(|s| s.url = url);
                 iced::Task::none()
             }
             Message::ChatApiModelChanged(model) => {
-                self.ai_api.model = model;
+                debug!("Model changed: {}", model);
+                self.s_ai_chat.as_mut()
+                    .map(|s| s.model = model);
                 iced::Task::none()
+            }
+            Message::NewAiChatNameChanged(name) => {
+                debug!("Name changed: {}", name);
+                self.s_ai_chat.as_mut()
+                    .map(|s| s.name = name);
+                iced::Task::none()
+
             }
             Message::VoiceEventRec(ve) => {
                 match ve {
                     VoiceEvent::Ready(r) => {
                         self.v_sender = Some(r);
-                        let el_api = self.ai_apis.iter()
-                            .find(|e| e.name == String::from("Elevenlabs"));
-                        if let Some(el_api) = el_api {
+                        let el_api = self.s_ai_table.iter()
+                            .find(|(_,e)| e.name == String::from("Elevenlabs"));
+                        if let Some((_,el_api)) = el_api.as_ref() {
                             
                             let model = self.voices.get(&el_api.model).unwrap().clone();
                             let key = el_api.key.clone();

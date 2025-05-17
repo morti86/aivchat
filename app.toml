@@ -1,8 +1,7 @@
-sel_chat = "Deepseek"
 height = 600.0
 width = 800.0
 font_size = 18
-rec_device = "Monitor of AudioQuest DragonFly Black v1.5 Analogowe stereo"
+rec_device = "Trust GXT 232 Microphone Mono"
 theme = "Catppuccin Mocha"
 tr_model = "./ggml-large-v3-turbo-q5_0.bin"
 tr_lang = "EN"
@@ -14,17 +13,11 @@ key = ""
 url = "Model = voice, look voices list in app.toml for names"
 model = "Lily"
 
-[ai_chats.ollama_qwq]
-name = "Ollama [qwq:32b]"
+[ai_chats.deepseek]
+name = "Deepseek"
 key = ""
-url = "http://localhost:11434/v1"
-model = "qwq:latest"
-
-[ai_chats.gpt]
-name = "Chat GPT"
-key = ""
-url = "https://api.openai.com/v1"
-model = "gpt-4"
+url = "https://api.deepseek.com"
+model = "deepseek-chat"
 
 [ai_chats.ollama_deepseek]
 name = "Ollama [deepseek-r1:32b]"
@@ -32,17 +25,29 @@ key = ""
 url = "http://localhost:11434/v1"
 model = "deepseek-r1:32b"
 
-[ai_chats.deepseek]
-name = "Deepseek"
-key = ""
-url = "https://api.deepseek.com"
-model = "deepseek-chat"
-
 [ai_chats.ollama_gemma]
 name = "Ollama [gemma3:27b]"
 key = ""
 url = "http://localhost:11434/v1"
 model = "gemma3:27b"
+
+[ai_chats.gpt]
+name = "Chat GPT"
+key = ""
+url = "https://api.openai.com/v1"
+model = "gpt-4"
+
+[ai_chats.1d310d03-3366-11f0-9daf-15021f34003d]
+name = "Dupa"
+key = "rrr4444"
+url = "Dupa"
+model = "Dupa"
+
+[ai_chats.ollama_qwq]
+name = "Ollama [qwq:32b]"
+key = ""
+url = "http://localhost:11434/v1"
+model = "qwq:latest"
 
 [voices]
 Alice = "Xb7hH8MSUJpSbSDYk0k2"
